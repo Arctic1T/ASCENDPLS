@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
+  <meta name="theme-color" content="#0a0614"/>
+  <meta name="apple-mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+  <meta name="apple-mobile-web-app-title" content="Turner Ascend"/>
+  <title>Turner Ascend</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0;}
+    body{background:#0a0614;color:#e2d9f3;font-family:'DM Mono',monospace;-webkit-tap-highlight-color:transparent;overscroll-behavior:none;}
+    #root{min-height:100vh;}
+    input,textarea{transition:border-color 0.15s;}
+    input:focus,textarea:focus{border-color:#a855f7!important;outline:none;}
+    ::-webkit-scrollbar{width:4px;}::-webkit-scrollbar-track{background:#0a0614;}::-webkit-scrollbar-thumb{background:#2d1f47;border-radius:2px;}
+    .nt:hover{color:#c084fc!important;}.cd:hover{border-color:#a855f7!important;}.pb:hover{opacity:0.85;}.sb:hover{filter:brightness(1.1);}.evd:hover{background:#a855f710!important;border-color:#a855f755!important;}.nc:hover{border-color:#818cf8!important;}
+    details summary::-webkit-details-marker{display:none;}
+  </style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const {useState, useEffect} = React;
+
+const PRACTICE_TYPES=["Throwing","Hitting","Running","Gym"];
+const MONTHS=["January","February","March","April","May","June","July","August","September","October","November","December"];
+const DAYS=["S","M","T","W","T","F","S"];
+const VEL_CATEGORIES=[
+  {key:"throwingVel",label:"Throwing Velocity",unit:"mph",color:"#a855f7",icon:"🎯"},
+  {key:"hittingVel",label:"Exit Velocity",unit:"mph",color:"#e879f9",icon:"💥"},
+  {key:"dashTime",label:"60 Yard Dash",unit:"sec",color:"#38bdf8",icon:"⚡",inverse:true},
+];
+const PRACTICE_COLORS={Throwing:"#a855f7",Hitting:"#e879f9",Running:"#38bdf8",Gym:"#818cf8"};
+const INCOME_TARGETS=[100000,125000,150000,200000,250000,500000,1000000];
+const FEDERAL_HOLIDAYS_2024=new Set(["2024-01-01","2024-01-15","2024-02-19","2024-05-27","2024-06-19","2024-07-04","2024-09-02","2024-10-14","2024-11-11","2024-11-28","2024-12-25"]);
+
+function countTradingDays(){let c=0;const d=new Date("2024-01-01"),e=new Date("2024-12-31");while(d<=e){const w=d.getDay(),s=d.toISOString().slice(0,10);if(w!==0&&w!==6&&!FEDERAL_HOLIDAYS_2024.has(s))c++;d.setDate(d.getDate()+1);}return c;}
+const TRADING_DAYS=countTradingDays();
+
+function getToday(){const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;}
+function getDIM(y,m){return new Date(y,m+1,0).getDate();}
+function getFD(y,m){return new Date(y,m,1).getDay();}
+const defDay=()=>({sleep:"",meals:"",practices:[],throwingVel:"",hittingVel:"",dashTime:"",notes:""});
+const fmt=n=>n.toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2});
+const fmtK=n=>n>=1000000?`$${(n/1000000).toFixed(1)}M`:`$${(n/1000).toFixed(0)}K`;
+
+function VelChart({data,color,unit}){
+  if(data.length<2) return <div style={{textAlign:"center",color:"#4b3f6b",fontSize:12,padding:"22px 0"}}>Log 2+ entries to see trend</div>;
+  const W=520,H=150,PL=44,PR=16,PT=14,PB=28;
+  const vals=data.map(d=>d.val),lo=Math.min(...vals),hi=Math.max(...vals);
+  const pad=(hi-lo)*0.25||2,yLo=lo-pad,yHi=hi+pad,yR=yHi-yLo;
+  const toX=i=>PL+(i/(data.length-1))*(W-PL-PR);
+  const toY=v=>PT+(H-PT-PB)-((v-yLo)/yR)*(H-PT-PB);
+  const pts=data.map((d,i)=>`${toX(i)},${toY(d.val)}`).join(" ");
+  const area=`${toX(0)},${H-PB} `+pts+` ${toX(data.length-1)},${H-PB}`;
+  return(<svg viewBox={`0 0 ${W} ${H}`} style={{width:"100%",display:"block"}}>
+    <defs><linearGradient id={`g${color.replace("#","")}`} x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor={color} stopOpacity="0.2"/><stop offset="100%" stopColor={color} stopOpacity="0"/></linearGradient></defs>
+    {[0,0.5,1].map((t,i)=><line key={i} x1={PL} y1={PT+(H-PT-PB)*t} x2={W-PR} y2={PT+(H-PT-PB)*t} stroke="#2d1f47" strokeWidth="1"/>)}
+    <polygon points={area} fill={`url(#g${color.replace("#","")})`}/>
+    <polyline points={pts} fill="none" stroke={color} strokeWidth="2" strokeLinejoin="round"/>
+    {data.map((d,i)=><circle key={i} cx={toX(i)} cy={toY(d.val)} r="4" fill={color}/>)}
+  </svg>);
+}
+
+function Card({children,style={}}){return<div style={{background:"linear-gradient(135deg,#1a0f2e,#130b24)",border:"1px solid #2d1f47",borderRadius:16,padding:"18px 20px",marginBottom:12,...style}}>{children}</div>;}
+function FL({color="#a855f7",children}){return<div style={{fontSize:10,fontWeight:700,color,textTransform:"uppercase",letterSpacing:"0.15em",marginBottom:10}}>{children}</div>;}
+
+const iS={background:"#0e0820",border:"1px solid #2d1f47",borderRadius:10,color:"#e2d9f3",padding:"10px 14px",fontSize:15,fontFamily:"'DM Mono',monospace",outline:"none",width:"100%"};
+const nB={background:"transparent",border:"1px solid #2d1f47",color:"#6b5f8a",borderRadius:8,width:36,height:36,fontSize:18,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"};
+
+const TABS=[["calendar","CAL"],["log","LOG"],["stats","STATS"],["events","EVT"],["goals","💰"],["income","📈"],["colleges","🎓"],["sync","SYNC"]];
+
+function App(){
+  const today=getToday();
+  const [logs,setLogs]=useState(()=>JSON.parse(localStorage.getItem("ta_logs")||"{}"));
+  const [events,setEvents]=useState(()=>JSON.parse(localStorage.getItem("ta_events")||"{}"));
+  const [goals,setGoals]=useState(()=>JSON.parse(localStorage.getItem("ta_goals")||"[]"));
+  const [notes,setNotes]=useState(()=>JSON.parse(localStorage.getItem("ta_notes")||"[]"));
+  const [sel,setSel]=useState(today);
+  const [view,setView]=useState("calendar");
+  const [cY,setCY]=useState(new Date().getFullYear());
+  const [cM,setCM]=useState(new Date().getMonth());
+  const [form,setForm]=useState(defDay());
+  const [saved,setSaved]=useState(false);
+
+  useEffect(()=>{setForm(logs[sel]?{...defDay(),...logs[sel]}:defDay());},[sel, logs]);
+  useEffect(()=>{localStorage.setItem("ta_logs",JSON.stringify(logs));},[logs]);
+  useEffect(()=>{localStorage.setItem("ta_events",JSON.stringify(events));},[events]);
+  useEffect(()=>{localStorage.setItem("ta_goals",JSON.stringify(goals));},[goals]);
+  useEffect(()=>{localStorage.setItem("ta_notes",JSON.stringify(notes));},[notes]);
+
+  const save=()=>{setLogs(p=>({...p,[sel]:{...form}}));setSaved(true);setTimeout(()=>setSaved(false),2000);};
+  const togP=p=>setForm(f=>({...f,practices:f.practices.includes(p)?f.practices.filter(x=>x!==p):[...f.practices,p]}));
+  
+  const handleExport=()=>{
+    const data={logs,events,goals,notes};
+    const blob=new Blob([JSON.stringify(data)],{type:"application/json"});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement("a");a.href=url;a.download=`TurnerAscend_Backup_${getToday()}.json`;a.click();
+  };
+
+  const handleImport=(e)=>{
+    const file=e.target.files[0]; if(!file)return;
+    const reader=new FileReader();
+    reader.onload=(evt)=>{
+      try{
+        const data=JSON.parse(evt.target.result);
+        if(data.logs)setLogs(data.logs);if(data.events)setEvents(data.events);if(data.goals)setGoals(data.goals);if(data.notes)setNotes(data.notes);
+        alert("Import Successful!");
+      }catch(err){alert("Invalid File");}
+    };
+    reader.readAsText(file);
+  };
+
+  const dim=getDIM(cY,cM),fd=getFD(cY,cM);
+  const cStr=d=>`${cY}-${String(cM+1).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
+
+  return(
+    <div style={{minHeight:"100vh",background:"#0a0614",color:"#e2d9f3"}}>
+      <div style={{background:"#130b24",borderBottom:"1px solid #2d1f47",padding:"13px 16px",position:"sticky",top:0,zIndex:200}}>
+        <div style={{fontFamily:"'Bebas Neue'",fontSize:22,letterSpacing:"0.1em",marginBottom:10}}>TURNER ASCEND</div>
+        <div style={{display:"flex",gap:4,flexWrap:"wrap"}}>
+          {TABS.map(([v,l])=>(<button key={v} onClick={()=>setView(v)} style={{background:view===v?"#a855f722":"transparent",color:view===v?"#a855f7":"#4b3f6b",border:`1px solid ${view===v?"#a855f7":"#2d1f47"}`,borderRadius:8,padding:"5px 9px",fontSize:10,fontWeight:700}}>{l}</button>))}
+        </div>
+      </div>
+
+      <div style={{maxWidth:580,margin:"0 auto",padding:"18px 14px"}}>
+        {view==="calendar" && (
+           <div>
+             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:15}}>
+               <button onClick={()=>cM===0?(setCM(11),setCY(cY-1)):setCM(cM-1)} style={nB}>‹</button>
+               <span style={{fontFamily:"'Bebas Neue'",fontSize:20}}>{MONTHS[cM]} {cY}</span>
+               <button onClick={()=>cM===11?(setCM(0),setCY(cY+1)):setCM(cM+1)} style={nB}>›</button>
+             </div>
+             <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:5}}>
+               {Array(fd).fill(0).map((_,i)=><div key={i}/>)}
+               {Array(dim).fill(0).map((_,i)=>{
+                 const d=i+1,ds=cStr(d),hasL=logs[ds];
+                 return <button key={d} onClick={()=>{setSel(ds);setView("log")}} style={{background:ds===sel?"#a855f722":"#110820",border:`1px solid ${ds===sel?"#a855f7":"#2d1f47"}`,borderRadius:8,padding:10,color:"#fff"}}>
+                   {d}{hasL&&<div style={{width:4,height:4,background:"#a855f7",margin:"2px auto",borderRadius:"50%"}}/>}
+                 </button>
+               })}
+             </div>
+           </div>
+        )}
+
+        {view==="log" && (
+          <div>
+            <FL color="#a855f7">Log for {sel}</FL>
+            <Card><FL color="#818cf8">Sleep (Hours)</FL><input type="number" value={form.sleep} onChange={e=>setForm({...form,sleep:e.target.value})} style={iS}/></Card>
+            <Card><FL color="#e879f9">Practice Type</FL>
+              <div style={{display:"flex",gap:5}}>{PRACTICE_TYPES.map(p=><button key={p} onClick={()=>togP(p)} style={{padding:8,borderRadius:8,border:"1px solid #2d1f47",background:form.practices.includes(p)?"#a855f7":"transparent",color:"#fff",fontSize:10}}>{p}</button>)}</div>
+            </Card>
+            <Card><FL color="#a855f7">Performance</FL>
+              {VEL_CATEGORIES.map(cat=><div key={cat.key} style={{marginBottom:10}}><div style={{fontSize:10}}>{cat.label}</div><input type="number" value={form[cat.key]} onChange={e=>setForm({...form,[cat.key]:e.target.value})} style={iS}/></div>)}
+            </Card>
+            <button onClick={save} style={{width:"100%",background:"#a855f7",padding:15,borderRadius:12,border:"none",color:"#fff",fontWeight:700}}>{saved?"SAVED!":"SAVE LOG"}</button>
+          </div>
+        )}
+
+        {view==="stats" && (
+          <div>
+            {VEL_CATEGORIES.map(cat=>(
+              <Card key={cat.key}><FL color={cat.color}>{cat.label}</FL>
+                <VelChart color={cat.color} data={Object.entries(logs).filter(([_,v])=>v[cat.key]).map(([d,v])=>({date:d,val:parseFloat(v[cat.key])})).sort((a,b)=>a.date.localeCompare(b.date))}/>
+              </Card>
+            ))}
+          </div>
+        )}
+
+        {view==="events" && (
+          <div>
+            <button onClick={()=>{const t=prompt("Event Title"); if(t) setEvents({...events,[sel]:[...(events[sel]||[]),{title:t}]})}} style={{width:"100%",padding:12,background:"#fbbf24",border:"none",borderRadius:8,marginBottom:10}}>+ ADD EVENT TO {sel}</button>
+            {Object.entries(events).map(([d,evs])=>evs.map((e,i)=><Card key={d+i}><FL color="#fbbf24">{d}</FL>{e.title}</Card>))}
+          </div>
+        )}
+
+        {view==="goals" && (
+          <div>
+            <button onClick={()=>{const l=prompt("Goal Name"),a=prompt("Amount"); if(l&&a) setGoals([...goals,{label:l,amount:a}])}} style={{width:"100%",padding:12,background:"#4ade80",border:"none",borderRadius:8,marginBottom:10}}>+ NEW GOAL</button>
+            {goals.map((g,i)=><Card key={i}><div style={{display:"flex",justifyContent:"space-between"}}><span>{g.label}</span><span>${g.amount}</span></div></Card>)}
+          </div>
+        )}
+
+        {view==="income" && (
+          <div>
+            <Card><FL color="#38bdf8">Trading Targets</FL>
+              {INCOME_TARGETS.map(t=><div key={t} style={{padding:"10px 0",borderBottom:"1px solid #2d1f47"}}>${fmtK(t)}: Daily Goal ${fmt(t/TRADING_DAYS)}</div>)}
+            </Card>
+          </div>
+        )}
+
+        {view==="colleges" && (
+          <div>
+            <button onClick={()=>{const n=prompt("Note Content"); if(n) setNotes([...notes,n])}} style={{width:"100%",padding:12,background:"#818cf8",border:"none",borderRadius:8,marginBottom:10}}>+ NEW NOTE</button>
+            {notes.map((n,i)=><Card key={i}>{n}</Card>)}
+          </div>
+        )}
+
+        {view==="sync" && (
+          <div style={{textAlign:"center"}}>
+            <Card style={{padding:30}}>
+              <FL color="#a855f7">Backup Center</FL>
+              <button onClick={handleExport} style={{width:"100%",padding:15,background:"#a855f722",border:"1px solid #a855f7",color:"#a855f7",borderRadius:10,fontWeight:700,marginBottom:20}}>DOWNLOAD BACKUP</button>
+              <label style={{width:"100%",padding:15,background:"#38bdf822",border:"1px solid #38bdf8",color:"#38bdf8",borderRadius:10,fontWeight:700,cursor:"pointer",display:"block"}}>
+                UPLOAD BACKUP
+                <input type="file" style={{display:"none"}} onChange={handleImport} accept=".json"/>
+              </label>
+            </Card>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>
